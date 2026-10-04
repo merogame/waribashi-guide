@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#101113">
+<title>割りばしガイド</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Yu Gothic",sans-serif;background:#101113;color:#f5f5f5;touch-action:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0;user-select:none;-webkit-user-select:none}
+main{position:relative;width:min(100%,28rem);height:100%;height:100dvh;margin:auto}
+button{padding:0;border:1px solid #3c3e43;border-radius:.6rem;background:#222429;color:inherit;font:600 1rem/1.2 system-ui,-apple-system,"Yu Gothic",sans-serif;touch-action:none;cursor:pointer}
+button:active:not(:disabled){background:#3c3e43}
+button:disabled{color:#62656b;background:#191a1d;border-color:#25272b;cursor:default}
+button:focus-visible{outline:2px solid #f8e24b;outline-offset:2px}
+#setup{position:absolute;left:1rem;right:1rem;top:50%;transform:translateY(-50%);display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+#setup button{height:5rem;font-size:1.5rem}
+.pair{position:absolute;left:max(1rem,env(safe-area-inset-left));right:max(1rem,env(safe-area-inset-right))}
+.opponent{top:max(1rem,env(safe-area-inset-top))}
+.own{bottom:max(1rem,env(safe-area-inset-bottom))}
+.owner{display:block;margin-bottom:.4rem;text-align:center;color:#a6a8ad;font-size:1rem;line-height:1.2}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.hand{height:clamp(3.25rem,16dvh,7rem);display:flex;align-items:center;justify-content:center;gap:1rem}
+.hand span{font-size:1rem;color:#a6a8ad}
+.hand output{font-size:clamp(1.75rem,9vmin,3rem);font-weight:600;line-height:1}
+.hand:disabled span{color:#a6a8ad}
+.hand:disabled output{color:#f5f5f5}
+.hand.dead output{color:#62656b}
+.hand.selected{outline:2px solid #f8e24b;outline-offset:2px}
+.hand.target{border-color:#f8e24b}
+.hand.target:disabled{border-color:#25272b}
+.center{position:absolute;left:1rem;right:1rem;top:50%;transform:translateY(-50%);text-align:center}
+#move{width:100%;border:0;border-radius:0;background:transparent;color:#f8e24b;font-size:clamp(1.5rem,8vmin,2.5rem);font-weight:700;line-height:1.4;white-space:pre-line}
+#move:disabled{color:#a6a8ad;background:transparent}
+#move.end{font-size:clamp(2rem,16vmin,5rem)}
+#split{display:flex;justify-content:center;gap:.5rem}
+#split button{min-width:0;width:6rem;height:3.5rem;font-size:clamp(1rem,5vmin,1.5rem)}
+#undo{position:absolute;top:max(.5rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));width:2rem;height:1.75rem;border:0;background:transparent;font-size:1.5rem}
+#undo:disabled{background:transparent}
+@media(max-height:350px){.pair{left:max(.75rem,env(safe-area-inset-left));right:max(.75rem,env(safe-area-inset-right))}.opponent{top:max(.5rem,env(safe-area-inset-top))}.own{bottom:max(.5rem,env(safe-area-inset-bottom))}.owner{font-size:.875rem;margin-bottom:.25rem}#move{font-size:1.25rem;line-height:1.25}#split button{height:2.5rem}#undo{top:max(.25rem,env(safe-area-inset-top));height:1.25rem;font-size:1.125rem}}
+@media(max-height:260px){.hand{height:2.5rem}.hand output{font-size:1.75rem}#move{font-size:1rem;line-height:1.2}#move.end{font-size:2rem}}
+</style>
+<main>
+<div id="setup"><button type="button" data-first="0">先手</button><button type="button" data-first="1">後手</button></div>
+<section id="game" hidden>
+<div class="pair opponent" role="group" aria-label="相手の手"><span class="owner">相手</span><div class="row"><button class="hand" type="button" data-hand="2"><span>左</span><output>1</output></button><button class="hand" type="button" data-hand="3"><span>右</span><output>1</output></button></div></div>
+<div class="center"><button id="move" type="button" aria-live="polite"></button><div id="split" role="group" aria-label="分け方" hidden></div></div>
+<div class="pair own" role="group" aria-label="自分の手"><span class="owner">自分</span><div class="row"><button class="hand" type="button" data-hand="0"><span>左</span><output>1</output></button><button class="hand" type="button" data-hand="1"><span>右</span><output>1</output></button></div></div>
+<button id="undo" type="button" aria-label="1手戻す" disabled>↶</button>
+</section>
+</main>
+<script>
+function legal(h){
+  const moves=[];
+  if(h[0]+h[1]===0||h[2]+h[3]===0)return moves;
+  for(let from=0;from<2;from++)if(h[from]){
+    for(let to=0;to<4;to++)if(to!==from&&h[to])moves.push({from,to});
+    const to=1-from,n=h[from];
+    if(h[to]===0&&n>1)for(let left=1;left<n;left++)moves.push({from,to,left,right:n-left});
+  }
+  return moves;
+}
+function apply(h,move){const next=h.slice();if(move.left!==undefined){next[0]=move.left;next[1]=move.right}else next[move.to]=(next[move.to]+next[move.from])%5;return next}
+function encode(h){return((h[0]*5+h[1])*5+h[2])*5+h[3]}
+function decode(i){return[Math.floor(i/125),Math.floor(i/25)%5,Math.floor(i/5)%5,i%5]}
+function swapped(h){return[h[2],h[3],h[0],h[1]]}
+function solve(){
+  const count=625,value=new Int8Array(count),distance=new Uint16Array(count),remaining=new Uint8Array(count),longest=new Uint16Array(count),parents=Array.from({length:count},()=>[]),queue=[];
+  for(let i=0;i<count;i++){
+    const h=decode(i);
+    if(h[0]+h[1]===0&&h[2]+h[3]===0)continue;
+    if(h[0]+h[1]===0){value[i]=-1;queue.push(i);continue}
+    if(h[2]+h[3]===0){value[i]=1;queue.push(i);continue}
+    const moves=legal(h);remaining[i]=moves.length;
+    for(const move of moves)parents[encode(swapped(apply(h,move)))].push(i);
+  }
+  for(let head=0;head<queue.length;head++){
+    const child=queue[head];
+    for(const parent of parents[child])if(value[parent]===0){
+      if(value[child]===-1){value[parent]=1;distance[parent]=distance[child]+1;queue.push(parent)}
+      else{longest[parent]=Math.max(longest[parent],distance[child]+1);if(--remaining[parent]===0){value[parent]=-1;distance[parent]=longest[parent];queue.push(parent)}}
+    }
+  }
+  return{value,distance};
+}
+function best(h,table){
+  const state=encode(h),value=table.value[state],moves=legal(h);
+  let candidates=moves.filter(move=>table.value[encode(swapped(apply(h,move))) ]===-value);
+  if(value){const ranks=candidates.map(move=>table.distance[encode(swapped(apply(h,move)))]),rank=value===1?Math.min(...ranks):Math.max(...ranks);candidates=candidates.filter((move,i)=>ranks[i]===rank)}
+  return candidates;
+}
+function pick(moves){const limit=4294967296-4294967296%moves.length,random=new Uint32Array(1);do{crypto.getRandomValues(random)}while(random[0]>=limit);return moves[random[0]%moves.length]}
+const setup=document.getElementById('setup'),game=document.getElementById('game'),center=document.getElementById('move'),split=document.getElementById('split'),undo=document.getElementById('undo'),buttons=[...document.querySelectorAll('.hand')],table=solve(),sides=['左','右'];
+let hands=[1,1,1,1],turn=0,selected=-1,recommended=null,history=[],ended=false,splitting=false;
+function localHands(){return turn?swapped(hands):hands.slice()}
+function localIndex(index){return turn?(index+2)%4:index}
+function globalIndex(index){return turn?(index+2)%4:index}
+function describe(move){if(move.left!==undefined)return'分ける\n左'+move.left+'・右'+move.right;return'自分 '+sides[move.from]+'\n→ '+(move.to<2?'自分 ':'相手 ')+sides[move.to%2]}
+function targets(){return selected<0?[]:legal(localHands()).filter(move=>move.from===localIndex(selected))}
+function render(){
+  ended=hands[0]+hands[1]===0||hands[2]+hands[3]===0;
+  const moves=targets();
+  for(const button of buttons){
+    const index=Number(button.dataset.hand),isSource=Math.floor(index/2)===turn&&hands[index]>0,isTarget=moves.some(move=>globalIndex(move.to)===index);
+    button.querySelector('output').textContent=hands[index];button.setAttribute('aria-label',(index<2?'自分':'相手')+'の'+sides[index%2]+'、'+hands[index]+'本');
+    button.disabled=ended||splitting||!(selected<0?isSource:index===selected||isTarget);button.classList.toggle('selected',index===selected);button.classList.toggle('target',isTarget);button.classList.toggle('dead',hands[index]===0);
+  }
+  center.hidden=splitting;split.hidden=!splitting;center.classList.toggle('end',ended);
+  if(ended){center.textContent=hands[2]+hands[3]===0?'勝ち':'負け';center.disabled=false;center.setAttribute('aria-label',center.textContent+'。先手・後手の選択へ')}
+  else if(selected>=0){center.textContent=(turn?'相手 ':'自分 ')+sides[selected%2]+' →';center.disabled=true;center.setAttribute('aria-label',center.textContent)}
+  else if(turn){center.textContent='相手の番';center.disabled=true;center.setAttribute('aria-label','相手の番')}
+  else{center.textContent=describe(recommended);center.disabled=false;center.setAttribute('aria-label','推奨手：'+center.textContent.replace('\n','、')+'。タップで反映')}
+  undo.disabled=history.length===0&&selected<0&&!splitting;undo.setAttribute('aria-label',selected>=0||splitting?'選択を取り消す':'1手戻す');
+}
+function commit(move){
+  history.push({hands:hands.slice(),turn,recommended});if(history.length>128)history.shift();
+  const next=apply(localHands(),move);hands=turn?swapped(next):next;turn=1-turn;selected=-1;splitting=false;
+  recommended=hands[0]+hands[1]&&hands[2]+hands[3]&&turn===0?pick(best(hands,table)):null;render();
+}
+function choose(index){
+  if(ended||splitting)return;
+  if(index===selected){selected=-1;render();return}
+  if(selected<0){if(Math.floor(index/2)===turn&&hands[index]){selected=index;render()}return}
+  const moves=targets().filter(move=>globalIndex(move.to)===index);
+  if(!moves.length)return;
+  if(moves[0].left===undefined){commit(moves[0]);return}
+  split.replaceChildren();
+  for(const move of moves){const button=document.createElement('button');button.type='button';button.textContent=move.left+'・'+move.right;button.setAttribute('aria-label',(turn?'相手':'自分')+'を左'+move.left+'本・右'+move.right+'本に分ける');button.addEventListener('click',()=>commit(move));split.append(button)}
+  splitting=true;render();
+}
+setup.addEventListener('click',event=>{const button=event.target.closest('button[data-first]');if(!button)return;hands=[1,1,1,1];turn=Number(button.dataset.first);history=[];selected=-1;splitting=false;recommended=turn?null:pick(best(hands,table));setup.hidden=true;game.hidden=false;render()});
+buttons.forEach(button=>button.addEventListener('click',()=>choose(Number(button.dataset.hand))));
+center.addEventListener('click',()=>{if(ended){game.hidden=true;setup.hidden=false;return}if(turn===0&&selected<0&&!splitting)commit(recommended)});
+undo.addEventListener('click',()=>{if(selected>=0||splitting){selected=-1;splitting=false;render();return}const previous=history.pop();if(previous){hands=previous.hands;turn=previous.turn;recommended=previous.recommended;render()}});
+for(const name of ['touchmove','wheel','gesturestart','gesturechange','gestureend','dblclick'])document.addEventListener(name,event=>event.preventDefault(),{passive:false});
+document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&['+','=','-','_','0','Add','Subtract'].includes(event.key))event.preventDefault()});
+</script>
+</html>
