@@ -32,26 +32,24 @@ button:focus-visible{outline:2px solid #f8e24b;outline-offset:2px}
 .hand.selected{outline:2px solid #f8e24b;outline-offset:2px}
 .hand.target{border-color:#f8e24b}
 .hand.target:disabled{border-color:#25272b}
+.own .hand:disabled{background:transparent;border-color:transparent}
 .center{position:absolute;left:1rem;right:1rem;top:50%;transform:translateY(-50%);text-align:center}
 #move{width:100%;border:0;border-radius:0;background:transparent;color:#f8e24b;font-size:clamp(1.5rem,8vmin,2.5rem);font-weight:700;line-height:1.4;white-space:pre-line}
 #move:disabled{color:#a6a8ad;background:transparent}
 #move.end{font-size:clamp(2rem,16vmin,5rem)}
-#target-input{margin-top:.75rem}
-#target-input button{height:3.25rem;font-size:1.125rem}
 #split{display:flex;justify-content:center;gap:.5rem}
 #split button{min-width:0;width:6rem;height:3.5rem;font-size:clamp(1rem,5vmin,1.5rem)}
 #undo{position:absolute;top:max(.5rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));width:2rem;height:1.75rem;border:0;background:transparent;font-size:1.5rem}
-#undo:disabled{background:transparent}
-@media(max-height:350px){.pair{left:max(.75rem,env(safe-area-inset-left));right:max(.75rem,env(safe-area-inset-right))}.opponent{top:max(.5rem,env(safe-area-inset-top))}.own{bottom:max(.5rem,env(safe-area-inset-bottom))}.owner{font-size:.875rem;margin-bottom:.25rem}#move{font-size:1.25rem;line-height:1.25}#target-input{margin-top:.5rem}#target-input button{height:2.5rem;font-size:1rem}#split button{height:2.5rem}#undo{top:max(.25rem,env(safe-area-inset-top));height:1.25rem;font-size:1.125rem}}
+@media(max-height:350px){.pair{left:max(.75rem,env(safe-area-inset-left));right:max(.75rem,env(safe-area-inset-right))}.opponent{top:max(.5rem,env(safe-area-inset-top))}.own{bottom:max(.5rem,env(safe-area-inset-bottom))}.owner{font-size:.875rem;margin-bottom:.25rem}#move{font-size:1.25rem;line-height:1.25}#split button{height:2.5rem}#undo{top:max(.25rem,env(safe-area-inset-top));height:1.25rem;font-size:1.125rem}}
 @media(max-height:260px){.hand{height:2.5rem}.hand output{font-size:1.75rem}#move{font-size:1rem;line-height:1.2}#move.end{font-size:2rem}}
 </style>
 <main>
 <div id="setup"><button type="button" data-first="0">先手</button><button type="button" data-first="1">後手</button></div>
 <section id="game" hidden>
 <div class="pair opponent" role="group" aria-label="相手の手"><span class="owner">相手</span><div class="row"><button class="hand" type="button" data-hand="2"><span>左</span><output>1</output></button><button class="hand" type="button" data-hand="3"><span>右</span><output>1</output></button></div></div>
-<div class="center"><button id="move" type="button" aria-live="polite"></button><div id="target-input" class="row" role="group" aria-label="相手が攻撃した自分の手" hidden><button type="button" data-target="0">自分 左</button><button type="button" data-target="1">自分 右</button></div><div id="split" role="group" aria-label="相手の分け方" hidden></div></div>
-<div class="pair own" role="group" aria-label="自分の手"><span class="owner">自分</span><div class="row"><div class="hand" role="group" data-hand="0"><span>左</span><output>1</output></div><div class="hand" role="group" data-hand="1"><span>右</span><output>1</output></div></div></div>
-<button id="undo" type="button" aria-label="1手戻す" disabled>↶</button>
+<div class="center"><button id="move" type="button" aria-live="polite"></button><div id="split" role="group" aria-label="相手の分け方" hidden></div></div>
+<div class="pair own" role="group" aria-label="自分の手"><span class="owner">自分</span><div class="row"><button class="hand" type="button" data-hand="0"><span>左</span><output>1</output></button><button class="hand" type="button" data-hand="1"><span>右</span><output>1</output></button></div></div>
+<button id="undo" type="button" aria-label="1手戻す">↶</button>
 </section>
 </main>
 <script>
@@ -95,7 +93,7 @@ function best(h,table){
   return candidates;
 }
 function pick(moves){const limit=4294967296-4294967296%moves.length,random=new Uint32Array(1);do{crypto.getRandomValues(random)}while(random[0]>=limit);return moves[random[0]%moves.length]}
-const setup=document.getElementById('setup'),game=document.getElementById('game'),center=document.getElementById('move'),targetInput=document.getElementById('target-input'),split=document.getElementById('split'),undo=document.getElementById('undo'),views=[...document.querySelectorAll('.hand')],opponentButtons=[...document.querySelectorAll('.opponent button')],targetButtons=[...targetInput.children],table=solve(),sides=['左','右'];
+const setup=document.getElementById('setup'),game=document.getElementById('game'),center=document.getElementById('move'),split=document.getElementById('split'),undo=document.getElementById('undo'),views=[...document.querySelectorAll('.hand')],opponentButtons=[...document.querySelectorAll('.opponent button')],ownButtons=[...document.querySelectorAll('.own button')],table=solve(),sides=['左','右'];
 let hands=[1,1,1,1],turn=0,selected=-1,recommended=null,history=[],ended=false,splitting=false;
 function describe(move){if(move.left!==undefined)return'分ける\n左'+move.left+'・右'+move.right;return'自分 '+sides[move.from]+'\n→ '+(move.to<2?'自分 ':'相手 ')+sides[move.to%2]}
 function opponentMoves(){return selected<0?[]:legal(swapped(hands)).filter(move=>move.from===selected-2)}
@@ -107,14 +105,13 @@ function render(){
     view.querySelector('output').textContent=hands[index];view.setAttribute('aria-label',(index<2?'自分':'相手')+'の'+sides[index%2]+'、'+hands[index]+'本');view.classList.toggle('dead',hands[index]===0);
   }
   for(const button of opponentButtons){const index=Number(button.dataset.hand),isTarget=moves.some(move=>move.to===index-2);button.disabled=ended||splitting||turn===0||!(selected<0?hands[index]>0:index===selected||isTarget);button.classList.toggle('selected',index===selected);button.classList.toggle('target',isTarget)}
-  targetInput.hidden=selected<0||splitting||ended;
-  targetButtons.forEach(button=>{button.disabled=!moves.some(move=>move.to===Number(button.dataset.target)+2)});
+  for(const button of ownButtons){const isTarget=moves.some(move=>move.to===Number(button.dataset.hand)+2);button.disabled=ended||splitting||turn===0||!isTarget;button.classList.toggle('target',isTarget)}
   center.hidden=splitting;split.hidden=!splitting;center.classList.toggle('end',ended);
   if(ended){center.textContent=hands[2]+hands[3]===0?'勝ち':'負け';center.disabled=false;center.setAttribute('aria-label',center.textContent+'。先手・後手の選択へ')}
   else if(selected>=0){center.textContent='相手 '+sides[selected-2]+' →';center.disabled=true;center.setAttribute('aria-label',center.textContent)}
   else if(turn){center.textContent='相手の番';center.disabled=true;center.setAttribute('aria-label','相手の番')}
   else{center.textContent=describe(recommended);center.disabled=false;center.setAttribute('aria-label','推奨手：'+center.textContent.replace('\n','、')+'。タップで反映')}
-  undo.disabled=history.length===0&&selected<0;undo.setAttribute('aria-label',selected>=0?'選択を取り消す':'1手戻す');
+  undo.setAttribute('aria-label',selected>=0?'選択を取り消す':history.length?'1手戻す':'先手・後手の選択へ');
 }
 function commit(move){
   history.push({hands:hands.slice(),turn,recommended});if(history.length>128)history.shift();
@@ -138,9 +135,9 @@ function chooseTarget(to){
 }
 setup.addEventListener('click',event=>{const button=event.target.closest('button[data-first]');if(!button)return;hands=[1,1,1,1];turn=Number(button.dataset.first);history=[];selected=-1;splitting=false;recommended=turn?null:pick(best(hands,table));setup.hidden=true;game.hidden=false;render()});
 opponentButtons.forEach(button=>button.addEventListener('click',()=>chooseOpponent(Number(button.dataset.hand))));
-targetButtons.forEach(button=>button.addEventListener('click',()=>chooseTarget(Number(button.dataset.target)+2)));
+ownButtons.forEach(button=>button.addEventListener('click',()=>chooseTarget(Number(button.dataset.hand)+2)));
 center.addEventListener('click',()=>{if(ended){game.hidden=true;setup.hidden=false;return}if(turn===0)commit(recommended)});
-undo.addEventListener('click',()=>{if(selected>=0){selected=-1;splitting=false;render();return}const previous=history.pop();if(previous){hands=previous.hands;turn=previous.turn;recommended=previous.recommended;render()}});
+undo.addEventListener('click',()=>{if(selected>=0){selected=-1;splitting=false;render();return}const previous=history.pop();if(previous){hands=previous.hands;turn=previous.turn;recommended=previous.recommended;render()}else{game.hidden=true;setup.hidden=false}});
 for(const name of ['touchmove','wheel','gesturestart','gesturechange','gestureend','dblclick'])document.addEventListener(name,event=>event.preventDefault(),{passive:false});
 document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&['+','=','-','_','0','Add','Subtract'].includes(event.key))event.preventDefault()});
 </script>
