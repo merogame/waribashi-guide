@@ -1,5 +1,5 @@
 {
-  "htmlBytes": 12145,
+  "htmlBytes": 11830,
   "liveStates": 576,
   "edges": 2656,
   "counts": {
@@ -36,5 +36,5 @@
       "to": 3
     }
   ],
-  "solveMs": 4.4635000000000105
+  "solveMs": 5.193599999999996
 }
