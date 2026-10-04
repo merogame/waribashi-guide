@@ -1,0 +1,40 @@
+{
+  "htmlBytes": 11476,
+  "liveStates": 576,
+  "edges": 2656,
+  "counts": {
+    "win": 163,
+    "loss": 34,
+    "draw": 379
+  },
+  "iterations": 9,
+  "initialValue": 0,
+  "initialDistance": 0,
+  "initialRecommended": [
+    {
+      "from": 0,
+      "to": 1
+    },
+    {
+      "from": 0,
+      "to": 2
+    },
+    {
+      "from": 0,
+      "to": 3
+    },
+    {
+      "from": 1,
+      "to": 0
+    },
+    {
+      "from": 1,
+      "to": 2
+    },
+    {
+      "from": 1,
+      "to": 3
+    }
+  ],
+  "solveMs": 3.540600000000005
+}
